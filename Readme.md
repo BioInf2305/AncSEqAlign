@@ -11,13 +11,13 @@ The pipeline starts with the raw fastq files of the ancient samples and generate
 
 **Step 1**). FILTERFASTQ
 
-parameter file: ./parameters/filterFastq.config
+parameter file: ./parameters/filterFastq.config\
 module file: ./modules/runCutAdapt.nf
 
 **Sub-step 1.1** filterCutAdapt
-tool used: cutadapt (v 4.0)
-purpose: to trim the adapter sequences and filter fastq-reads
-parameters: illumina adapters (set to "AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC"),  minimum adapter overlap (set to 1 ) bp and minimum read length (set to 30 bp)
+tool used: cutadapt (v 4.0)\
+purpose: to trim the adapter sequences and filter fastq-reads\
+parameters: illumina adapters (set to "AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC"),  minimum adapter overlap (set to 1 ) bp and minimum read length (set to 30 bp)\
 conda installation file : ./conda/cutadapt.yaml
 
 **Step 2**). RUNFASTQC
