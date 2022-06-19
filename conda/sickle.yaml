@@ -1,0 +1,5 @@
+name: sickle_env
+channels:
+          - bioconda
+dependencies:
+          - sickle-trim=1.33
