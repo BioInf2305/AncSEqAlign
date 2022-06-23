@@ -4,7 +4,7 @@
 
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
-AncSeqAlign is a nextflow-based pipeline which combines multiple open-source tools to align the single end Illumina sequences (Phred scale encoded using ASCII 33 to 93) that are generated from the ancient DNA sample. The pipeline, by taking into accounts the specific characteristics of ancient DNA such as short read fragements, damaged nucleotides due to deamination of unmethylated cytosines, sets the parameters of various tools as recommended in these studies (https://doi.org/10.1093/bib/bbab076, https://www.science.org/doi/10.1126/science.aav1002). 
+AncSeqAlign is a nextflow-based pipeline which combines multiple open-source tools to align the single end Illumina sequences (Phred scale encoded using ASCII 33 to 93) that are generated from the ancient DNA sample. The pipeline, by taking into accounts the specific characteristics of ancient DNA such as short read fragements, damaged nucleotides due to deamination of unmethylated cytosines, sets the parameters of various tools as recommended in these studies (https://doi.org/10.1093/bib/bbab076, https://www.science.org/doi/10.1126/science.aav1002). **Currently this pipeline only works with conda**
 
 ## The pipeline in brief (beta-version):
 The pipeline starts with the raw fastq files of the ancient samples and generate pseduo-diploid genotypes in plink format after carrying out the standard alignment procedures with the settings optimized for the ancient DNA samples. All the main parameters such as input files, reference files, and the steps to be performed should be provided in ./AncSEqAlign.config. Note that the input reference should be indexed with bwa. 
