@@ -106,7 +106,7 @@ parameters: minimum base quality for the base to consider (default value is 25),
 ![plot](./pipelineVisualization/AncSEqAlign.png)
 
 ## Options for running the pipeline on Linux HPC
-In the nextflow.config file, the profile "cluster" has been added to take into account the SLURM executor.The user can change and optimized the resources mentioned under different labels (such as "oneCpu", "sixteenCpus"). If you change these labels, also remember to apply these changes in the respective module file.  If the HPC has been more than one cluster, then user should export the appropriate cluster variables, in case of SLURM, it could be, "export SLURM_CLUSTERS=inter", before running the pipeline. 
+In the nextflow.config file, the profile "cluster" has been added to take into account the SLURM executor.The user can change and optimized the resources mentioned under different labels (such as "oneCpu", "sixteenCpus"). If you change these labels, also remember to apply these changes in the respective module file.  If the HPC has been more than one cluster, then user should export the appropriate cluster variables, in case of SLURM (in LRZ linux clusters), it could be, "export SLURM_CLUSTERS=inter", before running the pipeline. 
 
 ## Installation and dependencies
 To run this pipeline, users need to have conda and nextflow installed. After clonning this repository, the user need to run the following command
