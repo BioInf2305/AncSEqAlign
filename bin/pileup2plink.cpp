@@ -12,6 +12,7 @@
  *the following function collect the alternate bases with the quality score exceed by that of the defined by the user
  */
 
+int countChunk = 0 ;
 
 std::vector<std::string> collectAltBaseVec(std::vector<std::string>& vectorLine, int& qualScore){
 	std::vector<std::string> qualAltAlleles;
@@ -34,12 +35,43 @@ std::vector<std::string> collectAltBaseVec(std::vector<std::string>& vectorLine,
 }
 
 /*
+ *the following function write the vector to the ped and map file
+ *
+ */
+
+void writeVectorToPlinkFiles(std::vector<std::vector<std::string>>& genoRecordVec, std::string& sampleName){
+        std::string mapSu(".map");
+	std::string pedSu(".ped");
+        pedSu = sampleName+pedSu;
+	mapSu = sampleName+mapSu;
+        std::ofstream dest;
+	dest.open(pedSu, std::ofstream::out | std::ofstream::app);
+	std::ofstream dest1;
+	dest1.open(mapSu, std::ofstream::out | std::ofstream::app);
+	if (countChunk == 0){
+	std::string famName(" 0 0 0 0");
+	famName = sampleName+" "+sampleName+famName;
+	dest<<famName;
+	}
+        for(int i=0; i<genoRecordVec.size();i++){
+                        dest<<" "<<genoRecordVec[i][2][0]<<" "<<genoRecordVec[i][2][1];
+			dest1<<genoRecordVec[i][0]<<" "<<genoRecordVec[i][0]<<"_"<<genoRecordVec[i][1]<<" 0 "<<genoRecordVec[i][1]<<"\n";
+	}
+	countChunk++;
+} 
+
+/*
  *
  *the following function read the file lines into vector
  */
 
-std::vector<std::vector<std::string>> readFileToVector(const std::string& filename, int& qualScore){
+void readFileToVector(const std::string& filename, int& qualScore, std::string& sampleName){
     std::ifstream source;
+
+    std::string pedSu(".ped");
+
+    //read pileup file
+    
     source.open(filename);
     std::vector<std::vector<std::string>> lineVecs;
     std::string line;
@@ -67,40 +99,25 @@ std::vector<std::vector<std::string>> readFileToVector(const std::string& filena
 		}
 	lineVecs.push_back(outputLine);
 		}
+	//std::cout<<lineVecs.size()<<"\n";
+	if(lineVecs.size() > 1000000){
+		writeVectorToPlinkFiles(lineVecs, sampleName);
+		std::cout<<" read another 1000000 positions "<<"\n";
+		lineVecs.clear();
+		}
 	}
-    return lineVecs;
+        std::ofstream dest;
+	dest.open(pedSu, std::ofstream::out | std::ofstream::app);
+	dest<<"\n";
+    //return lineVecs;
 }
 
-/*
- *the following function write the vector to the ped and map file
- *
- */
-
-void writeVectorToPlinkFiles(std::vector<std::vector<std::string>>& genoRecordVec, std::string& sampleName){
-        std::string mapSu(".map");
-	std::string pedSu(".ped");
-	std::string famName(" 0 0 0 0");
-	famName = sampleName+" "+sampleName+famName;
-        pedSu = sampleName+pedSu;
-	mapSu = sampleName+mapSu;
-        std::ofstream dest;
-        dest.open(pedSu);
-	std::ofstream dest1;
-	dest1.open(mapSu);
-	dest<<famName;
-        for(int i=0; i<genoRecordVec.size();i++){
-                        dest<<" "<<genoRecordVec[i][2][0]<<" "<<genoRecordVec[i][2][1];
-			dest1<<genoRecordVec[i][0]<<" "<<genoRecordVec[i][0]<<"_"<<genoRecordVec[i][1]<<" 0 "<<genoRecordVec[i][1]<<"\n";
-	}
-	dest<<"\n";
-	
-
-} 
 
 int main(int argc, char **argv){
     std::string charactersFilename(argv[1]);
     int qualScore = std::stoi(argv[2]);
     std::string sampleName(argv[3]);
-    std::vector<std::vector<std::string>> genoRecordVec = readFileToVector(charactersFilename, qualScore);
-    writeVectorToPlinkFiles(genoRecordVec, sampleName);
+    readFileToVector(charactersFilename, qualScore, sampleName);
+    //std::vector<std::vector<std::string>> genoRecordVec = readFileToVector(charactersFilename, qualScore);
+    //writeVectorToPlinkFiles(genoRecordVec, sampleName);
 }
