@@ -1,5 +1,8 @@
 name: gatk4_env
 channels:
+          - conda-forge
           - bioconda
+          - defaults
 dependencies:
           - gatk4=4.2.6.0
+          - picard=2.27.2

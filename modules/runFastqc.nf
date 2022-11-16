@@ -18,19 +18,21 @@ process runFastqc {
     label "oneCpu"
     							
     input:
-    	tuple val(sample), path(rawFastqFile)
+        path(rawFastqFile)
 
     output:									
-   	tuple val(sample), path("*.html")
+        path("*.html")
 
     script:									
 	
-	def minLength                  = params.minLength
-	def contaminantsFile           = params.contaminantsFile
-	def adaptersFile               = params.adaptersFile
-	def limitsFile                 = params.limitsFile
-	def kmers                      = params.kmers
-	def fastqcTmpDir               = params.fastqcTmpDir
+ 	    def fastqBaseName              = rawFastqFile.baseName
+        def sampleName                 = fastqBaseName.split("\\.")[0]
+	    def minLength                  = params.minLength
+	    def contaminantsFile           = params.contaminantsFile
+	    def adaptersFile               = params.adaptersFile
+	    def limitsFile                 = params.limitsFile
+	    def kmers                      = params.kmers
+	    def fastqcTmpDir               = params.fastqcTmpDir
 	command = "" 
 	
 	

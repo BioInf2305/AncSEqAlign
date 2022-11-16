@@ -14,17 +14,22 @@ process filterCutadapt {
     container params.CONTAINER
     conda "$baseDir/conda/cutadapt.yaml"
     //publishDir(params.fqOutputDir, pattern:"*trimmed".gz",mode:"cp")
-    tag { "cutadapt_${sample}" }
+    tag { "cutadapt_${rawFastqFile}" }
     label "oneCpu"
     							
     input:
-    	tuple val(sample), path(rawFastqFile)
+        path(rawFastqFile)
 
     output:									
-   	tuple val(sample), path("*trimmed*")
+   	    path("*trimmed*")
 
     script:									
 	
+ 	    def fastqBaseName = rawFastqFile.baseName
+        def sampleName = fastqBaseName.split("\\.")[0]
+        println sampleName
+        
+
 	def illuAdapters = params.illuAdapters
 	def minAdapterOverlap = params.minAdapterOverlap
 	def minReadLength = params.minReadLength
@@ -34,7 +39,7 @@ process filterCutadapt {
 
  	"""
 	
-	cutadapt ${command} -o ${sample}_cutadapt_trimmed.O${params.minAdapterOverlap}m${minReadLength}.fastq.gz ${rawFastqFile} 
+	cutadapt ${command} -o ${sampleName}_cutadapt_trimmed_O${params.minAdapterOverlap}_m${minReadLength}.fastq.gz ${rawFastqFile} 
 
 
     	"""

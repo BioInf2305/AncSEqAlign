@@ -12,20 +12,15 @@ params.help             = false
 // this prints the input parameters
 
 fastqFilesPath  = params.fastqFiles
-refFilesPath    = params.refPrefixFiles
-refFilesGatk    = params.refFilesGatk
+reference       = params.reference
 
 Channel
-    .fromFilePairs( fastqFilesPath, size : 1 )
-    .set { fastqFileTuple }
+    .fromFilePairs( fastqFilesPath, size : -1 )
+    .map{it[1]}
+    .flatten()
+    .set{ fastqFile }
 
-Channel
-    .fromFilePairs( refFilesPath, size: -1 )
-    .set{ refFilesTuple }
 
-Channel
-    .fromFilePairs( refFilesGatk, size: -1 )
-    .set{ refFilesGatkTuple }
 
 include { FILTERFASTQ } from "${baseDir}/modules/runCutAdapt" addParams(
 
@@ -52,7 +47,6 @@ include { RUNALIGNMENT } from "${baseDir}/modules/runAlignment" addParams(
 	createBwaIndex            : params.createBwaIndex,
 	algorithmBwa              : params.algorithmBwa,
 	seedLengthValue           : params.seedLengthValue,
-	sampleName                : params.sampleName,
 	minMapQ                   : params.minMapQ,
 	filterBamOut              : params.filterBamOut
 	
@@ -67,23 +61,37 @@ include {RUNBAMTOPSEDIPGENO} from "${baseDir}/modules/runBamToPseDipGeno" addPar
 
 	)
 
+include {CREATEREFINDICES} from "${baseDir}/modules/samtoolsFaidx" 
+
+
+include {CREATEREFDICT} from "${baseDir}/modules/picardDict" 
+
+
+include {CREATEBWAREFIDX} from "${baseDir}/modules/createBwaRefIdx" 
+
 workflow {
+    
+    faIdx = CREATEREFINDICES(reference)
+
+    faDict = CREATEREFDICT(reference) 
+
+    bwaRefIdx = CREATEBWAREFIDX(reference)
+
 	if ( params.filterFastq == "Yes" ){
-		filteredFastqFiles = FILTERFASTQ( fastqFileTuple )
+        fastqFile.view()   
+		filteredFastqFiles = FILTERFASTQ( fastqFile )
 	}
 	else{
-		filteredFastqFiles = fastqFileTuple
+		filteredFastqFiles = fastqFile
 	}
 	RUNFASTQC(filteredFastqFiles)
 	if (params.alignment == "Yes" ){
-		refFilesFastqCombined = filteredFastqFiles.combine(refFilesTuple)
-		trimmedFiltBamFile = RUNALIGNMENT( refFilesFastqCombined )
+		trimmedFiltBamFile = RUNALIGNMENT( filteredFastqFiles, bwaRefIdx , reference)
 		if (params.pseudoDiploGeno == "Yes" ){
-			RUNBAMTOPSEDIPGENO(trimmedFiltBamFile, refFilesGatkTuple)
+		    RUNBAMTOPSEDIPGENO(trimmedFiltBamFile, faIdx, faDict, reference)
 		}
 	}
 }
-
 
 
 

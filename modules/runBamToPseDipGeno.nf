@@ -12,82 +12,6 @@ params.CONTAINER = "biocontainers/samtools:v1.9-4-deb_cv1"
 
 
 
-
-process samtoolsFaidx{
-    container params.CONTAINER
-    conda "$baseDir/conda/samtools.yaml"
-    tag { "faidx_samtools" }
-    label "OneCpu"
-    							
-    input:
-	tuple val(refPrefix), path(refFile)
-
-    output:									
-   	path("*.fai")
-
-    script:
-										
-
-	"""
-
-	samtools faidx ${refFile}
-
-
-    	"""
-}
-
-process samtoolsBamIndex{
-    container params.CONTAINER
-    conda "$baseDir/conda/samtools.yaml"
-    tag { "index_samtools" }
-    label "OneCpu"
-    							
-    input:
-	path(trimFiltBam)
-
-    output:									
-   	path("*.bai")
-
-    script:
-										
-
-	"""
-
-	samtools index ${trimFiltBam}
-
-
-    	"""
-}
-
-process picardIndex{
-    container params.CONTAINER
-    conda "$baseDir/conda/picard.yaml"
-    tag { "createSeqDict_picard" }
-    label "oneCpu"
-    							
-    input:
-	tuple val(refPrefix), path(refFile)
-
-    output:									
-   	path("*.dict")
-
-    script:
-										
- 	def sampleName = params.sampleName
-	def tmpSamtoolsFolder = params.tmpSamtoolsFolder
-
-	"""
-
-	if [ ! -d ${tmpSamtoolsFolder}/${sampleName} ];then mkdir ${tmpSamtoolsFolder}/${sampleName};fi
-
-	picard CreateSequenceDictionary TMP_DIR=${tmpSamtoolsFolder}/${sampleName} R=${refFile} O=${refPrefix}.dict
-	
-	if [ -d ${tmpSamtoolsFolder}/${sampleName} ];then rm -r ${tmpSamtoolsFolder}/${sampleName};fi
-
-    	"""
-}
-
-
 process gatkPileup{
     container params.CONTAINER
     conda "$baseDir/conda/gatk4.yaml"
@@ -95,27 +19,25 @@ process gatkPileup{
     label "oneCpu"
     							
     input:
-	path(trimFiltBam)
-	path(bamIndex)
-	tuple val(refPrefix), path(refFile)
-	path(picardDict)
-	path(faIdx)
+	    tuple val(sample), path(trimFiltBamIdx), path(trimFiltBam)
+	    path(faIdx)
+        path(faDict)
+        path(reference)
 
     output:									
-   	path("*.pileup.txt")
+   	    tuple val(sample), path("*.pileup.txt")
 
     script:
 										
- 	def sampleName = params.sampleName
-	def tmpSamtoolsFolder = params.tmpSamtoolsFolder
+	    def tmpSamtoolsFolder = params.tmpSamtoolsFolder
 
 	"""
 
-	if [ ! -d ${tmpSamtoolsFolder}/${sampleName} ];then mkdir ${tmpSamtoolsFolder}/${sampleName};fi
+	if [ ! -d ${tmpSamtoolsFolder}/${sample} ];then mkdir ${tmpSamtoolsFolder}/${sample};fi
 
-	gatk --java-options "-Xmx${task.memory.toGiga()}G -Xms${task.memory.toGiga()}G" Pileup -R ${refFile} -I ${trimFiltBam} -O ${sampleName}.pileup.txt
+	gatk --java-options "-Xmx${task.memory.toGiga()}G -Xms${task.memory.toGiga()}G" Pileup -R ${reference} -I ${trimFiltBam} -O ${sample}.pileup.txt
 	
-	if [ -d ${tmpSamtoolsFolder}/${sampleName} ];then rm -r ${tmpSamtoolsFolder}/${sampleName};fi
+	if [ -d ${tmpSamtoolsFolder}/${sample} ];then rm -r ${tmpSamtoolsFolder}/${sample};fi
 
     	"""
 }
@@ -127,19 +49,18 @@ process pileupToPed{
     publishDir(params.pedResultsOut, pattern:"*.{ped,map}",mode:"move")
 
     input:
-	path(pileupIn)
+	tuple val(sample), path(pileupIn)
 
     output:									
-   	path("*.{ped,map}")
+   	tuple val(sample), path("*.{ped,map}")
 
     script:
 										
- 	def sampleName  = params.sampleName
 	def minBaseQual = params.minBaseQual
 
 	"""
 
-	$baseDir/bin/pileup2plink ${pileupIn} ${minBaseQual} ${sampleName}
+	$baseDir/bin/pileup2plink ${pileupIn} ${minBaseQual} ${sample}
 	
 
     	"""
@@ -148,18 +69,15 @@ process pileupToPed{
 workflow RUNBAMTOPSEDIPGENO {
  
     take: 
-	trimFiltBam
-	refTupleGatk
+        trimFiltBam
+        faIdx
+        faDict
+        reference
     
     main:
-	bamIndex = samtoolsBamIndex(trimFiltBam)
-	if (params.createGatkIndex == "Yes"){
-		picardDict = picardIndex(refTupleGatk)
-		faIdx      = samtoolsFaidx(refTupleGatk)
-		pileupOut  = gatkPileup(trimFiltBam, bamIndex, refTupleGatk, picardDict, faIdx)
-		pileupToPed(pileupOut)
-		
-	}
+
+	    pileupOut  = gatkPileup(trimFiltBam, faIdx, faDict, reference)
+	    pileupToPed(pileupOut)
 }
 
 

@@ -9,49 +9,33 @@ params.CONTAINER = "biocontainers/samtools:v1.9-4-deb_cv1"
  * sort bam files by read name
  */
 
-process runBwaIndex {
-    container params.CONTAINER
-    conda "$baseDir/conda/bwa.yaml"
-    tag { "runBwa_${sample}" }
-    label "oneCpu"
-    							
-    input:
-	tuple val(refPrefix), path(refFiles)
-
-    output:									
-   	tuple val(refPrefix), path("*.{amb,ann,bwt,pac,sa}")
-
-    script:									
-	
-	"""
-	bwa index -p ${refPrefix} ${refFiles}
-
-    	"""
-}
-
-
 process runBwaAlnAlignment {
     container params.CONTAINER
     conda "$baseDir/conda/bwa.yaml"
-    tag { "runBwa_${idTag}" }
+    tag { "runBwa_${sampleName}" }
     label "sixteenCpus"
     							
     input:
-    	tuple val(idTag), path(rawFastqFiles), val(refPrefix), path(refFiles)
+    	path(rawFastqFiles)
+        path(refBwaIdx)
+        path(reference)
 
     output:									
-   	tuple val(idTag), path("*.sam")
+   	    path("*.sam")
 
     script:									
 	
- 	def seedLengthValue = params.seedLengthValue
-	def sampleName      = params.sampleName
+ 	    def seedLengthValue = params.seedLengthValue
+ 	    def fastqBaseName              = rawFastqFiles.baseName
+        def sampleName                 = fastqBaseName.split("\\.")[0].split("_")[0]+"_"+fastqBaseName.split("\\.")[0].split("_")[1]
+        def finalSampleName = fastqBaseName.split("\\.")[0].split("_")[0] 
+
 
 	"""
 	
-	bwa aln -t ${task.cpus} -l ${seedLengthValue} ${refPrefix} ${rawFastqFiles} > ${idTag}.sai
+	bwa aln -t ${task.cpus} -l ${seedLengthValue} ${reference} ${rawFastqFiles} > ${sampleName}.sai
 
-	bwa samse -r '@RG\\tID:${idTag}\\tSM:${sampleName}\\tPL:ILLUMINA' ${refPrefix} ${idTag}.sai ${rawFastqFiles} > ${idTag}.sam
+	bwa samse -r '@RG\\tID:${sampleName}\\tSM:${finalSampleName}\\tPL:ILLUMINA' ${reference} ${sampleName}.sai ${rawFastqFiles} > ${sampleName}.sam
 
     	"""
 }
@@ -60,30 +44,33 @@ process runBwaAlnAlignment {
 process convertSamToBam{
     container params.CONTAINER
     conda "$baseDir/conda/samtools.yaml"
-    tag { "runSamtools_${sample}" }
+    tag { "runSamtools_${sampleName}" }
     label "sixteenCpus"
     							
     input:
-    	tuple val(sample), path(samFile)
+        path(samFile)
 
     output:									
-   	path("*.sorted.bam"), emit: sortedBamFile
-	path("*.bai"), emit: bamIndexFile
+   	    tuple val(finalSampleName), path("*.sorted.bam"),path("*.sorted*.bai")
 
     script:
-										
-	def tmpSamtoolsFolder = params.tmpSamtoolsFolder
+						
+ 	    def samBaseName              = samFile.baseName
+        def sampleName                 = samBaseName.split("\\.")[0].split("_")[0]+"_"+samBaseName.split("\\.")[0].split("_")[1]
+	    def tmpSamtoolsFolder = params.tmpSamtoolsFolder
+        finalSampleName = samBaseName.split("\\.")[0].split("_")[0] 
  	
 	"""
-	if [ ! -d ${tmpSamtoolsFolder}/${sample} ];then mkdir ${tmpSamtoolsFolder}/${sample};fi
+	if [ ! -d ${tmpSamtoolsFolder}/${sampleName} ];then mkdir ${tmpSamtoolsFolder}/${sampleName};fi
 
-	samtools view -@ ${task.cpus} -O BAM -o ${sample}.bam ${samFile} 
+	samtools view -@ ${task.cpus} -O BAM -o ${sampleName}.bam ${samFile} 
 	
-	samtools sort -T ${tmpSamtoolsFolder}/${sample} -O BAM -o ${sample}.sorted.bam -m "${task.memory.toGiga()}G" -@ ${task.cpus} ${sample}.bam
+	samtools sort -T ${tmpSamtoolsFolder}/${sampleName} -O BAM -o ${sampleName}.sorted.bam -m "${task.memory.toGiga()}G" -@ ${task.cpus} ${sampleName}.bam
 
-	samtools index ${sample}.sorted.bam
+	samtools index ${sampleName}.sorted.bam
 
-	if [ -d ${tmpSamtoolsFolder}/${sample} ];then rm -r ${tmpSamtoolsFolder}/${sample};fi
+
+	if [ -d ${tmpSamtoolsFolder}/${sampleName} ];then rm -r ${tmpSamtoolsFolder}/${sampleName};fi
 
     	"""
 }
@@ -96,17 +83,14 @@ process mergeSortedBam{
     label "sixteenCpus"
     							
     input:
-    	path(sortedBamFiles)
-	path(bamFileIndex)
+        tuple val(sampleName), path(sortedBamFiles), path(bamIndexFiles)
 
     output:									
-   	path("*.sorted.merged.bam"), emit: mergedBamFile
-	path("*.sorted.merged*.bai"), emit: mergedBamIndex
+   	    tuple val(sampleName), path("*.sorted.merged.bam"), path("*.sorted.merged*.bai")
 
     script:
 										
- 	def sampleName = params.sampleName
-	def tmpSamtoolsFolder = params.tmpSamtoolsFolder
+	    def tmpSamtoolsFolder = params.tmpSamtoolsFolder
 
 	"""
 
@@ -130,22 +114,19 @@ process removeDuplicates{
     label "oneCpu"
     							
     input:
-    	path(sortedMergedBamFiles)
-	path(sortedMergedBamFileIndex)
-
+        tuple val(sampleName), path(sortedMergedBamFile), path(soredMergedBamIndex)
     output:									
-   	path("*.sorted.merged.rmDup.bam")
+        tuple val(sampleName), path("*rmDup.bam")
 
     script:
 										
- 	def sampleName = params.sampleName
-	def tmpSamtoolsFolder = params.tmpSamtoolsFolder
+	    def tmpSamtoolsFolder = params.tmpSamtoolsFolder
 
 	"""
 
 	if [ ! -d ${tmpSamtoolsFolder}/${sampleName} ];then mkdir ${tmpSamtoolsFolder}/${sampleName};fi
 
-	picard "-Xmx${task.memory.toGiga()}G " MarkDuplicates TMP_DIR=${tmpSamtoolsFolder}/${sampleName} I=${sortedMergedBamFiles} O=${sampleName}.sorted.merged.rmDup.bam AS=true REMOVE_DUPLICATES=true METRICS_FILE=${sampleName}.rmDupMetrics.txt VALIDATION_STRINGENCY=LENIENT
+	picard "-Xmx${task.memory.toGiga()}G " MarkDuplicates TMP_DIR=${tmpSamtoolsFolder}/${sampleName} I=${sortedMergedBamFile} O=${sampleName}.sorted.merged.rmDup.bam AS=true REMOVE_DUPLICATES=true METRICS_FILE=${sampleName}.rmDupMetrics.txt VALIDATION_STRINGENCY=LENIENT
 	
 	if [ -d ${tmpSamtoolsFolder}/${sampleName} ];then rm -r ${tmpSamtoolsFolder}/${sampleName};fi
 
@@ -162,18 +143,16 @@ process filterBam{
     label "sixteenCpus"
     							
     input:
-    	path(sortedMergedRmDupBamFile)
+    	tuple val(sampleName), path(sortedMergedRmDupBamFile)
 
     output:									
-   	path("*.sorted.merged.rmDup.filt.bam"), emit: mergedRmDupFiltBamFile
-	path("*.sorted.merged.rmDup.filt.*.bai"), emit: mergedRmDupFiltBamIndex
+   	    tuple val(sampleName), path("*.sorted.merged.rmDup.filt.bam"), path("*.sorted.merged.rmDup.filt.*.bai")
 	
 
     script:
 										
- 	def sampleName        = params.sampleName
-	def tmpSamtoolsFolder = params.tmpSamtoolsFolder
-	def minMapQ           = params.minMapQ
+	    def tmpSamtoolsFolder = params.tmpSamtoolsFolder
+	    def minMapQ           = params.minMapQ
 
 	"""
 
@@ -198,42 +177,63 @@ process trimBam{
     publishDir(params.filterBamOut, pattern:"*.sorted.merged.rmDup.filt.trimmed.bam",mode:"copy")
     							
     input:
-    	path(filteredBamFile)
-	path(filteredBamIndex)
+        tuple val(sampleName), path(filteredBamFile), path(filteredBamIndex)
 
     output:									
-   	path("*.sorted.merged.rmDup.filt.trimmed.bam")
+   	    tuple val(sampleName), path("*.sorted.merged.rmDup.filt.trimmed.bam")
 	
 
     script:
 										
- 	def sampleName        = params.sampleName
-	def numTrimBase       = params.numTrimBase
+	    def numTrimBase       = params.numTrimBase
 
 	"""
 	
-	bam trimBam ${filteredBamFile} ${sampleName}.sorted.merged.rmDup.filt.trimmed.bam ${numTrimBase}
+	    bam trimBam ${filteredBamFile} ${sampleName}.sorted.merged.rmDup.filt.trimmed.bam ${numTrimBase}
 
     	"""
+}
+
+process trimBamIndex {
+    container params.CONTAINER
+    conda "$baseDir/conda/samtools.yaml"
+    tag { "runBwa_${sample}" }
+    label "oneCpu"
+    publishDir(params.filterBamOut, pattern:"*.sorted.merged.rmDup.filt.trimmed.bam.bai",mode:"copy")
+    							
+    input:
+	    tuple val(sample), path(bamFile)
+
+    output:									
+   	    tuple val(sample), path("*.bai")
+
+    script:									
+	
+	"""
+	
+	samtools index ${bamFile}
+
+    """
 }
 
 workflow RUNALIGNMENT {
  
     take: 
-	refTupleFastqTuple
+	    rawFastqFiles
+        refBwaIdx
+        reference
     
     main:
-	rawSamFilesTuple = runBwaAlnAlignment( refTupleFastqTuple )
-	convertSamToBam( rawSamFilesTuple )
-	mergeSortedBam( convertSamToBam.out.sortedBamFile.collect(), convertSamToBam.out.bamIndexFile.collect() )
-	remDupBamFile = removeDuplicates( mergeSortedBam.out.mergedBamFile, mergeSortedBam.out.mergedBamIndex )
-	filterBam( remDupBamFile )
-	filtTrimBam = trimBam( filterBam.out.mergedRmDupFiltBamFile, filterBam.out.mergedRmDupFiltBamIndex )
-
+        rawSamFilesTuple = runBwaAlnAlignment( rawFastqFiles, refBwaIdx, reference )
+        bamAndIndexFiles = convertSamToBam( rawSamFilesTuple )
+        bamAndIndexFilesGrouped = bamAndIndexFiles.groupTuple()
+        mergedBamIndex = mergeSortedBam( bamAndIndexFilesGrouped )
+        remDupBamFile = removeDuplicates( mergedBamIndex )
+        filteredBamOut = filterBam( remDupBamFile )
+        filtTrimBam = trimBam( filteredBamOut )
+        filtTrimIdxAndBam = trimBamIndex(filtTrimBam).combine(filtTrimBam, by:0)
+        //filtTrimIdxAndBam.view()
    emit:
-	filtTrimBam = filtTrimBam
+	filtTrimIdxAndBam = filtTrimIdxAndBam
 	
 }
-
-
-

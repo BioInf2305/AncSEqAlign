@@ -106,6 +106,11 @@ void readFileToVector(const std::string& filename, int& qualScore, std::string& 
 		lineVecs.clear();
 		}
 	}
+	if(lineVecs.size() > 0){
+		writeVectorToPlinkFiles(lineVecs, sampleName);
+		std::cout<<" read final blocks of SNPs "<<"\n";
+		lineVecs.clear();
+		}
         std::ofstream dest;
 	dest.open(pedSu, std::ofstream::out | std::ofstream::app);
 	dest<<"\n";
