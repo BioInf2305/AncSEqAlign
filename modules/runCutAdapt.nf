@@ -25,9 +25,8 @@ process filterCutadapt {
 
     script:									
 	
- 	    def fastqBaseName = rawFastqFile.baseName
+ 	def fastqBaseName = rawFastqFile.baseName
         def sampleName = fastqBaseName.split("\\.")[0]
-        println sampleName
         
 
 	def illuAdapters = params.illuAdapters

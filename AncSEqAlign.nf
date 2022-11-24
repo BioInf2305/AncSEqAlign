@@ -69,6 +69,15 @@ include {CREATEREFDICT} from "${baseDir}/modules/picardDict"
 
 include {CREATEBWAREFIDX} from "${baseDir}/modules/createBwaRefIdx" 
 
+
+include {RUNMULTIFASTQC} from "${baseDir}/modules/runMultiFastqc"
+
+
+include {RUNQUALIMAP} from "${baseDir}/modules/runQualimap"
+
+
+include {RUNMULTIBAMQC} from "${baseDir}/modules/runMultiBamqc"
+
 workflow {
     
     faIdx = CREATEREFINDICES(reference)
@@ -78,17 +87,19 @@ workflow {
     bwaRefIdx = CREATEBWAREFIDX(reference)
 
 	if ( params.filterFastq == "Yes" ){
-        fastqFile.view()   
 		filteredFastqFiles = FILTERFASTQ( fastqFile )
 	}
 	else{
 		filteredFastqFiles = fastqFile
 	}
-	RUNFASTQC(filteredFastqFiles)
+	fastqcOut = RUNFASTQC(filteredFastqFiles)
+	RUNMULTIFASTQC(fastqcOut.zip.collect())
 	if (params.alignment == "Yes" ){
-		trimmedFiltBamFile = RUNALIGNMENT( filteredFastqFiles, bwaRefIdx , reference)
+		runAlignmentOut = RUNALIGNMENT( filteredFastqFiles, bwaRefIdx , reference)
+		outQualimap = RUNQUALIMAP( runAlignmentOut )
+		RUNMULTIBAMQC(outQualimap.collect())
 		if (params.pseudoDiploGeno == "Yes" ){
-		    RUNBAMTOPSEDIPGENO(trimmedFiltBamFile, faIdx, faDict, reference)
+		    RUNBAMTOPSEDIPGENO(runAlignmentOut, faIdx, faDict, reference)
 		}
 	}
 }

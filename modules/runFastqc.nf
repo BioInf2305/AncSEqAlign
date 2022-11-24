@@ -21,7 +21,8 @@ process runFastqc {
         path(rawFastqFile)
 
     output:									
-        path("*.html")
+        path("*.html"), emit:fastqc_html
+	path("*_fastqc.zip"), emit: fastqc_zip
 
     script:									
 	
@@ -80,6 +81,10 @@ workflow RUNFASTQC {
     
     main:
 	runFastqc(fastqFiles)
+    
+    emit:
+	html = runFastqc.out.fastqc_html
+	zip  = runFastqc.out.fastqc_zip
 }
 
 
